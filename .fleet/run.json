@@ -1,0 +1,22 @@
+{
+    "configurations": [
+        {
+            "type": "cargo",
+            "name": "build",
+            "cargoArgs": ["b"],
+        },
+        {
+            "type": "cargo",
+            "name": "clippy",
+            "cargoArgs": ["clippy"],
+        },
+        
+        {
+            "type": "cargo",
+            "name": "run",
+            "cargoArgs": ["run"],
+        },
+        
+        
+    ]
+}
