@@ -1,46 +1,47 @@
-use reqwest::Response;
-
 use crate::driver::Delta;
+use hyper::StatusCode;
+use std::string::FromUtf8Error;
 
 #[derive(Debug)]
 pub enum DeltaError {
-    HTTP(reqwest::StatusCode, String),
-    REQWEST(reqwest::Error),
-    SERDE(reqwest::Error),
+    Http(hyper::StatusCode, String),
+    Hyper(hyper::Error),
+    Serde(serde_json::Error),
+    Byte(FromUtf8Error),
 }
 
 impl Delta {
     pub async fn result<T: serde::de::DeserializeOwned>(
-        http: Result<Response, reqwest::Error>,
+        http: Result<hyper::Response<hyper::Body>, hyper::Error>,
     ) -> Result<T, DeltaError> {
-        let res = http;
-        let result: T = match res {
-            Err(http) => {
-                return Err(DeltaError::REQWEST(http));
-            }
+        match http {
+            Err(http) => Err(DeltaError::Hyper(http)),
             Ok(a) => {
-                if !a.status().is_success() {
-                    return Err(DeltaError::HTTP(
-                        a.status(),
-                        a.text().await.unwrap_or_default(),
-                    ));
-                }
-                if a.status() == 204 {
-                    return Ok(serde_json::from_value(serde_json::Value::Null).unwrap());
-                }
+                let (status, hyper_string) = Delta::hyper_data(a).await?;
 
-                match a.json().await {
-                    Ok(a) => a,
-                    Err(a) => return Err(DeltaError::SERDE(a)),
+                match status.as_u16() {
+                    204 => Ok(serde_json::from_value(serde_json::Value::Null).unwrap()),
+                    200 => match serde_json::from_str(&hyper_string) {
+                        Ok(json) => Ok(json),
+                        Err(a) => Err(DeltaError::Serde(a)),
+                    },
+                    _ => Err(DeltaError::Http(status, hyper_string)),
                 }
             }
-        };
-        Ok(result)
+        }
     }
-}
-#[derive(Debug)]
-pub enum HeaderError {
-    Name(reqwest::header::InvalidHeaderName),
-    Value(reqwest::header::InvalidHeaderValue),
-    Generic(reqwest::Error),
+    pub async fn hyper_data(
+        input: hyper::Response<hyper::Body>,
+    ) -> Result<(StatusCode, String), DeltaError> {
+        Ok((
+            input.status(),
+            match String::from_utf8(match hyper::body::to_bytes(input.into_body()).await {
+                Ok(data) => data.to_vec(),
+                Err(error) => return Err(DeltaError::Hyper(error)),
+            }) {
+                Ok(data) => data,
+                Err(error) => return Err(DeltaError::Byte(error)),
+            },
+        ))
+    }
 }
