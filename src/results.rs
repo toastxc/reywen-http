@@ -45,3 +45,10 @@ impl Delta {
         ))
     }
 }
+
+// alias for result
+pub async fn result<T: serde::de::DeserializeOwned>(
+    http: Result<hyper::Response<hyper::Body>, hyper::Error>,
+) -> Result<T, DeltaError> {
+    Delta::result(http).await
+}
