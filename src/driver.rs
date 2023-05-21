@@ -1,7 +1,7 @@
 use hyper::{
-    header::USER_AGENT,
+    header::{self, USER_AGENT},
     http::{HeaderName, HeaderValue},
-    Client, Request,
+    Client, Method, Request,
 };
 use hyper_tls::HttpsConnector;
 
@@ -55,7 +55,7 @@ impl Delta {
         self.to_owned()
     }
     pub fn remove_headers(&mut self) -> Self {
-        self.headers = reqwest::header::HeaderMap::new();
+        self.headers = header::HeaderMap::new();
         self.to_owned()
     }
 
@@ -65,21 +65,13 @@ impl Delta {
     }
 
     pub async fn post(&self, route: &str, data: Option<&str>) -> Response {
-        self.common(
-            &format!("{}{}", self.url, route),
-            reqwest::Method::POST,
-            data,
-        )
-        .await
+        self.common(&format!("{}{}", self.url, route), Method::POST, data)
+            .await
     }
 
     pub async fn put(&self, route: &str, data: Option<&str>) -> Response {
-        self.common(
-            &format!("{}{}", self.url, route),
-            reqwest::Method::PUT,
-            data,
-        )
-        .await
+        self.common(&format!("{}{}", self.url, route), Method::PUT, data)
+            .await
     }
 
     pub async fn delete(&self, route: &str, data: Option<&str>) -> Response {
@@ -99,7 +91,7 @@ impl Delta {
         .await
     }
 
-    pub fn kv_parse(key: &str, value: &str) -> (HeaderName, HeaderValue) {
+    fn kv_parse(key: &str, value: &str) -> (HeaderName, HeaderValue) {
         (
             hyper::header::HeaderName::from_bytes(key.as_bytes()).unwrap(),
             hyper::header::HeaderValue::from_str(value).unwrap(),
@@ -108,6 +100,7 @@ impl Delta {
 
     async fn common(&self, url: &str, method: hyper::Method, input_data: Option<&str>) -> Response {
         let https = HttpsConnector::new();
+
         let client = Client::builder().build::<_, hyper::Body>(https);
         let mut headers = hyper::HeaderMap::new();
 
@@ -143,4 +136,4 @@ impl Delta {
         client.request(request.body(body).unwrap()).await
     }
 }
-pub type Response = Result<hyper::Response<hyper::Body>, hyper::Error>;
+type Response = Result<hyper::Response<hyper::Body>, hyper::Error>;
