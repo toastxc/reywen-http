@@ -1,3 +1,5 @@
+use super::traits::ErrorConvert;
+use crate::results::DeltaError;
 use hyper::{
     header::{self, USER_AGENT},
     http::{HeaderName, HeaderValue},
@@ -34,25 +36,25 @@ impl Delta {
         self.to_owned()
     }
 
-    pub fn set_headers(&mut self, headers: Vec<(&str, &str)>) -> Self {
+    pub fn set_headers(&mut self, headers: Vec<(&str, &str)>) -> Result<Self, DeltaError> {
         self.remove_headers();
-        self.add_headers(headers);
-        self.to_owned()
+        self.add_headers(headers)?;
+        Ok(self.to_owned())
     }
 
-    pub fn add_header(&mut self, key: &str, value: &str) -> Self {
-        let (key, value) = Self::kv_parse(key, value);
+    pub fn add_header(&mut self, key: &str, value: &str) -> Result<Self, DeltaError> {
+        let (key, value) = Self::kv_parse(key, value)?;
         self.headers.insert(key, value);
 
-        self.to_owned()
+        Ok(self.to_owned())
     }
 
-    pub fn add_headers(&mut self, headers: Vec<(&str, &str)>) -> Self {
+    pub fn add_headers(&mut self, headers: Vec<(&str, &str)>) -> Result<Self, DeltaError> {
         for (key, value) in headers.clone() {
-            let (key, value) = Self::kv_parse(key, value);
+            let (key, value) = Self::kv_parse(key, value)?;
             self.headers.append(key, value);
         }
-        self.to_owned()
+        Ok(self.to_owned())
     }
     pub fn remove_headers(&mut self) -> Self {
         self.headers = header::HeaderMap::new();
@@ -91,11 +93,11 @@ impl Delta {
         .await
     }
 
-    fn kv_parse(key: &str, value: &str) -> (HeaderName, HeaderValue) {
-        (
-            hyper::header::HeaderName::from_bytes(key.as_bytes()).unwrap(),
-            hyper::header::HeaderValue::from_str(value).unwrap(),
-        )
+    fn kv_parse(key: &str, value: &str) -> Result<(HeaderName, HeaderValue), DeltaError> {
+        let a = hyper::header::HeaderName::from_bytes(key.as_bytes()).res()?;
+        let b = hyper::header::HeaderValue::from_str(value).res()?;
+
+        Ok((a, b))
     }
 
     async fn common(&self, url: &str, method: hyper::Method, input_data: Option<&str>) -> Response {
@@ -104,16 +106,15 @@ impl Delta {
         let client = Client::builder().build::<_, hyper::Body>(https);
         let mut headers = hyper::HeaderMap::new();
 
-        headers.insert(
+        let user_agent = (
             USER_AGENT,
-            HeaderValue::from_str(
-                &self
-                    .clone()
-                    .user_agent
-                    .unwrap_or(String::from("Reywen-HTTP/10.0 (async-tokio-runtime)")),
-            )
-            .expect("invalid user agent!"),
+            &self
+                .clone()
+                .user_agent
+                .unwrap_or(String::from("Reywen-HTTP/10.0 (async-tokio-runtime)")),
         );
+
+        headers.insert(user_agent.0, HeaderValue::from_str(user_agent.1).res()?);
 
         let (body, content_type) = match input_data {
             Some(data) => (hyper::body::Body::from(data.to_owned()), "application/json"),
@@ -133,7 +134,7 @@ impl Delta {
 
         request.headers_mut().unwrap().extend(headers.into_iter());
 
-        client.request(request.body(body).unwrap()).await
+        client.request(request.body(body).unwrap()).await.res()
     }
 }
-type Response = Result<hyper::Response<hyper::Body>, hyper::Error>;
+type Response = Result<hyper::Response<hyper::Body>, DeltaError>;

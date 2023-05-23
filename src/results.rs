@@ -1,13 +1,21 @@
-use crate::driver::Delta;
-use hyper::StatusCode;
+use crate::{driver::Delta, traits::ErrorConvert};
+use hyper::{
+    header::{InvalidHeaderName, InvalidHeaderValue},
+    StatusCode,
+};
 use std::string::FromUtf8Error;
-
 #[derive(Debug)]
 pub enum DeltaError {
     Http(hyper::StatusCode, String),
     Hyper(hyper::Error),
     Serde(serde_json::Error),
     Byte(FromUtf8Error),
+    Header(HeaderError),
+}
+#[derive(Debug)]
+pub enum HeaderError {
+    Name(InvalidHeaderName),
+    Value(InvalidHeaderValue),
 }
 
 impl Delta {
@@ -35,13 +43,13 @@ impl Delta {
     ) -> Result<(StatusCode, String), DeltaError> {
         Ok((
             input.status(),
-            match String::from_utf8(match hyper::body::to_bytes(input.into_body()).await {
-                Ok(data) => data.to_vec(),
-                Err(error) => return Err(DeltaError::Hyper(error)),
-            }) {
-                Ok(data) => data,
-                Err(error) => return Err(DeltaError::Byte(error)),
-            },
+            String::from_utf8(
+                hyper::body::to_bytes(input.into_body())
+                    .await
+                    .res()?
+                    .to_vec(),
+            )
+            .res()?,
         ))
     }
 }
