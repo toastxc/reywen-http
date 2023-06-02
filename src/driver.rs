@@ -132,8 +132,18 @@ impl Delta {
             .uri(url)
             .header(hyper::header::CONTENT_TYPE, content_type);
 
-        request.headers_mut().unwrap().extend(headers.into_iter());
-
+        // request.headers_mut().unwrap().extend(headers.into_iter());
+        match request.headers_mut() {
+            Some(original_headers) => original_headers.extend(headers),
+            None => {
+                for (key, value) in headers {
+                    if let Some(key) = key {
+                        request = request.header(key, value);
+                    }
+                }
+            }
+        }
+        //println!("{:#?}", request.headers_ref());
         client.request(request.body(body).unwrap()).await.res()
     }
 }
