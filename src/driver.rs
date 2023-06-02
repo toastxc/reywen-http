@@ -143,8 +143,7 @@ impl Delta {
                 }
             }
         }
-        //println!("{:#?}", request.headers_ref());
-        client.request(request.body(body).unwrap()).await.res()
+        client.request(request.body(body).res()?).await.res()
     }
 }
 type Response = Result<hyper::Response<hyper::Body>, DeltaError>;

@@ -50,3 +50,12 @@ impl<T: std::fmt::Debug> ErrorConvert<T> for Result<T, FromUtf8Error> {
         }
     }
 }
+
+impl<T: std::fmt::Debug> ErrorConvert<T> for Result<T, hyper::http::Error> {
+    fn res(self) -> Result<T, DeltaError> {
+        match self {
+            Ok(data) => Ok(data),
+            Err(error) => Err(DeltaError::HyperHTTP(error)),
+        }
+    }
+}

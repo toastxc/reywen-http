@@ -493,7 +493,7 @@ dependencies = [
 
 [[package]]
 name = "reywen_http"
-version = "0.1.7"
+version = "0.1.9"
 dependencies = [
  "hyper",
  "hyper-rustls",

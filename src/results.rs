@@ -8,6 +8,7 @@ use std::string::FromUtf8Error;
 pub enum DeltaError {
     Http(hyper::StatusCode, String),
     Hyper(hyper::Error),
+    HyperHTTP(hyper::http::Error),
     Serde(serde_json::Error),
     Byte(FromUtf8Error),
     Header(HeaderError),
