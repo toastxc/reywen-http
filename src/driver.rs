@@ -153,7 +153,7 @@ impl Delta {
         method: Method,
         route: &str,
         data: Option<&str>,
-    ) -> Result<String, DeltaError> {
+    ) -> Result<Vec<u8>, DeltaError> {
         Delta::result_raw(
             self.common(&format!("{}{}", self.url, route), method.into(), data)
                 .await,

@@ -35,13 +35,13 @@ pub enum HeaderError {
 impl Delta {
     pub async fn result_raw(
         http: Result<hyper::Response<hyper::Body>, DeltaError>,
-    ) -> Result<String, DeltaError> {
-        let (status, hyper_string) = Delta::hyper_data(http?).await?;
+    ) -> Result<Vec<u8>, DeltaError> {
+        let (status, hyper_string) = Delta::hyper_data_raw(http?).await?;
 
         match status.as_u16() {
-            204 => Ok(String::new()),
+            204 => Ok(Vec::new()),
             200 => Ok(hyper_string),
-            _ => Err(DeltaError::Http(status, hyper_string)),
+            _ => Err(DeltaError::Http(status, String::new())),
         }
     }
 
