@@ -8,10 +8,18 @@ description = "A simple and easy to use HTTPv2 library for Rust (based on tokio/
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hyper = "0.14.26"
+
+hyper = "0.14.27"
 hyper-rustls = "0.24.0"
 hyper-timeout = "0.4.1"
 hyper-tls = "0.5.0"
-serde = { version = "1.0.162", features = ["derive"] }
-serde_json = "1.0.96"
-tokio = { version = "1.28.0", features = ["full"] }
+main = "0.1.0"
+tokio = "1.29.1"
+
+# feature
+serde = { version = "1.0.162", optional = true, features = ["derive"] }
+serde_json = {version = "1.0.96", optional = true}
+
+
+[features]
+serde = ["dep:serde", "dep:serde_json"]

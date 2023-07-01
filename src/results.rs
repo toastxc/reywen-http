@@ -1,9 +1,10 @@
-use crate::{driver::Delta, traits::ErrorConvert};
+use crate::{traits::ErrorConvert, Delta};
 use hyper::{
     header::{InvalidHeaderName, InvalidHeaderValue},
     StatusCode,
 };
 use std::string::FromUtf8Error;
+#[cfg(feature = "serde")]
 #[derive(Debug)]
 pub enum DeltaError {
     Http(hyper::StatusCode, String),
@@ -13,6 +14,16 @@ pub enum DeltaError {
     Byte(FromUtf8Error),
     Header(HeaderError),
 }
+#[cfg(not(feature = "serde"))]
+#[derive(Debug)]
+pub enum DeltaError {
+    Http(hyper::StatusCode, String),
+    Hyper(hyper::Error),
+    HyperHTTP(hyper::http::Error),
+    Byte(FromUtf8Error),
+    Header(HeaderError),
+}
+
 #[derive(Debug)]
 pub enum HeaderError {
     Name(InvalidHeaderName),
@@ -20,6 +31,7 @@ pub enum HeaderError {
 }
 
 impl Delta {
+    #[cfg(feature = "serde")]
     pub async fn result<T: serde::de::DeserializeOwned>(
         http: Result<hyper::Response<hyper::Body>, DeltaError>,
     ) -> Result<T, DeltaError> {
@@ -31,6 +43,18 @@ impl Delta {
                 Ok(json) => Ok(json),
                 Err(a) => Err(DeltaError::Serde(a)),
             },
+            _ => Err(DeltaError::Http(status, hyper_string)),
+        }
+    }
+
+    pub async fn result_raw(
+        http: Result<hyper::Response<hyper::Body>, DeltaError>,
+    ) -> Result<String, DeltaError> {
+        let (status, hyper_string) = Delta::hyper_data(http?).await?;
+
+        match status.as_u16() {
+            204 => Ok(String::new()),
+            200 => Ok(hyper_string),
             _ => Err(DeltaError::Http(status, hyper_string)),
         }
     }
@@ -51,8 +75,15 @@ impl Delta {
 }
 
 // alias for result
+#[cfg(feature = "serde")]
 pub async fn result<T: serde::de::DeserializeOwned>(
     http: Result<hyper::Response<hyper::Body>, DeltaError>,
 ) -> Result<T, DeltaError> {
     Delta::result(http).await
+}
+// alias for result raw
+pub async fn result_raw(
+    http: Result<hyper::Response<hyper::Body>, DeltaError>,
+) -> Result<String, DeltaError> {
+    Delta::result_raw(http).await
 }

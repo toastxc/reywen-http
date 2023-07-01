@@ -4,6 +4,9 @@ use hyper::header::{InvalidHeaderName, InvalidHeaderValue};
 
 use crate::results::{DeltaError, HeaderError};
 
+#[cfg(feature = "serde")]
+use serde_json;
+
 pub trait ErrorConvert<T: std::fmt::Debug> {
     fn res(self) -> Result<T, DeltaError>;
 }
@@ -33,6 +36,7 @@ impl<T: std::fmt::Debug> ErrorConvert<T> for Result<T, InvalidHeaderValue> {
         }
     }
 }
+#[cfg(feature = "serde")]
 impl<T: std::fmt::Debug> ErrorConvert<T> for Result<T, serde_json::Error> {
     fn res(self) -> Result<T, DeltaError> {
         match self {

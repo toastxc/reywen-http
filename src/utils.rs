@@ -1,6 +1,8 @@
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 // converts the data of a structure into url query parameters - with null safety
+#[cfg(feature = "serde")]
 pub fn struct_to_url<T: Serialize>(query: T) -> String {
     let mut iter = Vec::new();
 

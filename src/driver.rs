@@ -1,27 +1,16 @@
 use super::traits::ErrorConvert;
-use crate::results::DeltaError;
+use crate::{results::DeltaError, Delta};
 use hyper::{
     header::{self, USER_AGENT},
     http::{HeaderName, HeaderValue},
-    Client, Method, Request,
+    Request,
 };
+
 use hyper_tls::HttpsConnector;
 
-#[derive(Debug, Clone, Default)]
-pub struct Delta {
-    pub url: String,
-    pub timeout: std::time::Duration,
-    pub headers: hyper::header::HeaderMap,
-    pub user_agent: Option<String>,
-}
+use hyper::Client;
 
 impl Delta {
-    pub fn new() -> Self {
-        Self {
-            ..Default::default()
-        }
-    }
-
     pub fn set_user_agent(&mut self, user_agent: &str) -> Self {
         self.user_agent = Some(String::from(user_agent));
         self.to_owned()
@@ -67,12 +56,12 @@ impl Delta {
     }
 
     pub async fn post(&self, route: &str, data: Option<&str>) -> Response {
-        self.common(&format!("{}{}", self.url, route), Method::POST, data)
+        self.common(&format!("{}{}", self.url, route), hyper::Method::POST, data)
             .await
     }
 
     pub async fn put(&self, route: &str, data: Option<&str>) -> Response {
-        self.common(&format!("{}{}", self.url, route), Method::PUT, data)
+        self.common(&format!("{}{}", self.url, route), hyper::Method::PUT, data)
             .await
     }
 
@@ -104,6 +93,7 @@ impl Delta {
         let https = HttpsConnector::new();
 
         let client = Client::builder().build::<_, hyper::Body>(https);
+
         let mut headers = hyper::HeaderMap::new();
 
         let user_agent = (
@@ -117,8 +107,16 @@ impl Delta {
         headers.insert(user_agent.0, HeaderValue::from_str(user_agent.1).res()?);
 
         let (body, content_type) = match input_data {
-            Some(data) => (hyper::body::Body::from(data.to_owned()), "application/json"),
-            None => (hyper::Body::empty(), "text/plain"),
+            Some(data) => (
+                hyper::body::Body::from(data.to_owned()),
+                self.content_type
+                    .clone()
+                    .unwrap_or(String::from("application/json")),
+            ),
+            None => (
+                hyper::Body::empty(),
+                self.content_type.clone().unwrap_or(String::new()),
+            ),
         };
 
         for (key, value) in self.headers.clone() {
@@ -127,12 +125,11 @@ impl Delta {
             };
         }
 
-        let mut request = Request::builder()
-            .method(method)
-            .uri(url)
-            .header(hyper::header::CONTENT_TYPE, content_type);
+        let mut request = Request::builder().method(method).uri(url);
+        if content_type != String::new() {
+            request = request.header(hyper::header::CONTENT_TYPE, content_type);
+        }
 
-        // request.headers_mut().unwrap().extend(headers.into_iter());
         match request.headers_mut() {
             Some(original_headers) => original_headers.extend(headers),
             None => {
@@ -145,5 +142,61 @@ impl Delta {
         }
         client.request(request.body(body).res()?).await.res()
     }
+
+    #[cfg(feature = "serde")]
+    pub async fn request<T: serde::de::DeserializeOwned>(
+        &self,
+        method: Method,
+        route: &str,
+        data: Option<&str>,
+    ) -> Result<T, DeltaError> {
+        Delta::result(
+            self.common(&format!("{}{}", self.url, route), method.into(), data)
+                .await,
+        )
+        .await
+    }
 }
+
 type Response = Result<hyper::Response<hyper::Body>, DeltaError>;
+
+pub struct Method(MethodOption);
+
+enum MethodOption {
+    Post,
+    Put,
+    Patch,
+    Get,
+    Delete,
+    Head,
+    Options,
+    Connect,
+    Trace,
+}
+
+impl From<Method> for hyper::Method {
+    fn from(value: Method) -> Self {
+        match value.0 {
+            MethodOption::Post => hyper::Method::POST,
+            MethodOption::Put => hyper::Method::PUT,
+            MethodOption::Patch => hyper::Method::PATCH,
+            MethodOption::Get => hyper::Method::GET,
+            MethodOption::Delete => hyper::Method::DELETE,
+            MethodOption::Head => hyper::Method::HEAD,
+            MethodOption::Options => hyper::Method::OPTIONS,
+            MethodOption::Connect => hyper::Method::CONNECT,
+            MethodOption::Trace => hyper::Method::TRACE,
+        }
+    }
+}
+impl Method {
+    pub const POST: Method = Method(MethodOption::Post);
+    pub const PUT: Method = Method(MethodOption::Put);
+    pub const PATCH: Method = Method(MethodOption::Patch);
+    pub const GET: Method = Method(MethodOption::Get);
+    pub const DELETE: Method = Method(MethodOption::Delete);
+    pub const HEAD: Method = Method(MethodOption::Head);
+    pub const OPTIONS: Method = Method(MethodOption::Options);
+    pub const CONNECT: Method = Method(MethodOption::Connect);
+    pub const TRACE: Method = Method(MethodOption::Trace);
+}
