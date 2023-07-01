@@ -89,7 +89,7 @@ impl Delta {
         Ok((a, b))
     }
 
-    async fn common(&self, url: &str, method: hyper::Method, input_data: Option<&str>) -> Response {
+    pub async fn common(&self, url: &str, method: hyper::Method, input_data: Option<&str>) -> Response {
         let https = HttpsConnector::new();
 
         let client = Client::builder().build::<_, hyper::Body>(https);
@@ -143,14 +143,13 @@ impl Delta {
         client.request(request.body(body).res()?).await.res()
     }
 
-    #[cfg(feature = "serde")]
-    pub async fn request<T: serde::de::DeserializeOwned>(
+    pub async fn request_raw(
         &self,
         method: Method,
         route: &str,
         data: Option<&str>,
-    ) -> Result<T, DeltaError> {
-        Delta::result(
+    ) -> Result<String, DeltaError> {
+        Delta::result_raw(
             self.common(&format!("{}{}", self.url, route), method.into(), data)
                 .await,
         )

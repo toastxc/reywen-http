@@ -1,7 +1,10 @@
 pub mod driver;
+#[cfg(feature = "serde")]
+pub mod driver_serde;
 pub mod results;
 pub mod traits;
 pub mod utils;
+
 #[derive(Debug, Clone, Default)]
 pub struct Delta {
     pub url: String,
