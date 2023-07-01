@@ -89,7 +89,12 @@ impl Delta {
         Ok((a, b))
     }
 
-    pub async fn common(&self, url: &str, method: hyper::Method, input_data: Option<&str>) -> Response {
+    pub async fn common(
+        &self,
+        url: &str,
+        method: hyper::Method,
+        input_data: Option<&str>,
+    ) -> Response {
         let https = HttpsConnector::new();
 
         let client = Client::builder().build::<_, hyper::Body>(https);

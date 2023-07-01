@@ -4,6 +4,7 @@ use hyper::{
     StatusCode,
 };
 use std::string::FromUtf8Error;
+
 #[cfg(feature = "serde")]
 #[derive(Debug)]
 pub enum DeltaError {
@@ -14,6 +15,7 @@ pub enum DeltaError {
     Byte(FromUtf8Error),
     Header(HeaderError),
 }
+
 #[cfg(not(feature = "serde"))]
 #[derive(Debug)]
 pub enum DeltaError {
@@ -42,18 +44,24 @@ impl Delta {
             _ => Err(DeltaError::Http(status, hyper_string)),
         }
     }
+
+    pub async fn hyper_data_raw(
+        input: hyper::Response<hyper::Body>,
+    ) -> Result<(StatusCode, Vec<u8>), DeltaError> {
+        Ok((
+            input.status(),
+            hyper::body::to_bytes(input.into_body())
+                .await
+                .res()?
+                .to_vec(),
+        ))
+    }
+
     pub async fn hyper_data(
         input: hyper::Response<hyper::Body>,
     ) -> Result<(StatusCode, String), DeltaError> {
-        Ok((
-            input.status(),
-            String::from_utf8(
-                hyper::body::to_bytes(input.into_body())
-                    .await
-                    .res()?
-                    .to_vec(),
-            )
-            .res()?,
-        ))
+        let (status, vec) = Self::hyper_data_raw(input).await?;
+
+        Ok((status, String::from_utf8(vec).res()?))
     }
 }
