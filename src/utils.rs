@@ -1,9 +1,10 @@
 #[cfg(feature = "serde")]
 use serde::Serialize;
 
-// converts the data of a structure into url query parameters - with null safety
+/// converts the data of a structure into url query parameters
+/// this function does not support arrays or objects  
 #[cfg(feature = "serde")]
-pub fn struct_to_url<T: Serialize>(query: T) -> String {
+pub fn struct_to_url_vlod<T: Serialize>(query: T) -> String {
     let mut iter = Vec::new();
 
     let json_str = serde_json::to_string(&query).unwrap_or_default();
@@ -12,16 +13,9 @@ pub fn struct_to_url<T: Serialize>(query: T) -> String {
 
     for (key, value) in json_obj {
         // arrays and objects are not supported in a URL query, and as such cannot be imported
-        if value.is_object() || value.is_array() {
-            println!("WARNING: input field invalid for URL, it has been skipped:\nKEY: {key}\nVALUE:{value}");
+        if value.is_object() || value.is_array() | value.is_null() {
             continue;
         }
-
-        // nulls and None enum varients are denied as they do not contain data
-        if value.is_null() {
-            continue;
-        }
-
         iter.push(format!("{key}={}", urlencoding::encode(&value.to_string())));
     }
 
@@ -41,17 +35,76 @@ pub fn struct_to_url<T: Serialize>(query: T) -> String {
     str
 }
 
-// converts a generic option to a string of content or an empty string
-pub fn option_str<T>(input: Option<T>) -> String
-where
-    T: std::fmt::Display,
-{
-    match input {
-        None => String::new(),
-        Some(a) => a.to_string(),
+/// converts the data of a structure into url query parameters
+/// this function does not support objects  
+#[cfg(feature = "serde")]
+pub fn struct_to_url<T: Serialize>(query: T) -> String {
+    serde_json::from_str::<serde_json::Map<String, serde_json::Value>>(
+        &serde_json::to_string(&query).unwrap_or_default(),
+    )
+    .unwrap_or_default()
+    .into_iter()
+    .filter_map(|(key, value)| {
+        // arrays
+        if let Some(array) = value.as_array() {
+            Some(
+                array
+                    .iter()
+                    .map(|item| format!("{key}[]={}", encode_value(item)))
+                    .collect(),
+            )
+            // blacklist - non supported types
+        } else if value.is_object() | value.is_null() {
+            None
+        } else {
+            // standard value parse
+            Some(format!("{key}={}", encode_value(&value)))
+        }
+    })
+    .collect::<Vec<String>>()
+    .into_iter()
+    .enumerate()
+    .map(|(index, item)| {
+        println!("ITEM: {:#?}", &item);
+        (if index == 0 { "?" } else { "&" }).to_string() + &item
+    })
+    .collect::<String>()
+}
+
+#[tokio::test]
+async fn test_url() {
+    #[derive(Debug, Serialize, Default, Clone)]
+    pub struct DataStruct {
+        string: String,
+        object: DataObject,
+        array: Vec<String>,
     }
+    #[derive(Debug, Serialize, Default, Clone)]
+    pub struct DataObject {
+        s1: String,
+        s2: String,
+    }
+
+    let url = "example.com";
+    let data = DataStruct {
+        string: String::from("haiii"),
+        array: vec!["item".to_string(), "in".to_string(), "vec".to_string()],
+        ..Default::default()
+    };
+    // testing different implementations for url encoding
+    println!("ORIGINAL: {url}, {:?}", data);
+    println!("TOAST ENCODED: {url}{}", struct_to_url(&data));
+    println!("VLOD ENCODED: {url}{}", struct_to_url_vlod(&data));
 }
 
 pub fn if_false(t: &bool) -> bool {
     !t
+}
+#[cfg(feature = "serde")]
+pub fn encode_value(value: &serde_json::Value) -> String {
+    encode_str(&value.to_string())
+}
+
+pub fn encode_str(value: &str) -> String {
+    urlencoding::encode(value).into_owned()
 }
