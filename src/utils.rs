@@ -73,6 +73,7 @@ pub fn struct_to_url<T: Serialize>(query: T, encode: bool) -> String {
     .enumerate()
     .map(|(index, item)| (if index == 0 { "?" } else { "&" }).to_string() + &item)
     .collect::<String>()
+    .replace('"', "")
 }
 
 #[tokio::test]
