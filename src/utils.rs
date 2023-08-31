@@ -76,33 +76,6 @@ pub fn struct_to_url<T: Serialize>(query: T, encode: bool) -> String {
     .replace('"', "")
 }
 
-#[tokio::test]
-async fn test_url() {
-    #[derive(Debug, Serialize, Default, Clone)]
-    pub struct DataStruct {
-        string: String,
-        object: DataObject,
-        array: Vec<String>,
-    }
-    #[derive(Debug, Serialize, Default, Clone)]
-    pub struct DataObject {
-        s1: String,
-        s2: String,
-    }
-
-    let url = "example.com";
-    let data = DataStruct {
-        string: String::from("haiii"),
-        array: vec!["item".to_string(), "in".to_string(), "vec".to_string()],
-        ..Default::default()
-    };
-    // testing different implementations for url encoding
-    println!("ORIGINAL: {url}, {:?}", data);
-    println!("TOAST ENCODED: {url}{}", struct_to_url(&data, false));
-    println!("TOAST ENCODED ENABLED: {url}{}", struct_to_url(&data, true));
-    println!("VLOD ENCODED: {url}{}", struct_to_url_vlod(&data));
-}
-
 pub fn if_false(t: &bool) -> bool {
     !t
 }
@@ -116,5 +89,36 @@ pub fn encode_str(value: &str, encode: bool) -> String {
         urlencoding::encode(value).into_owned()
     } else {
         value.to_owned()
+    }
+}
+#[cfg(feature = "serde")]
+mod test {
+    #[tokio::test]
+    async fn test_url() {
+        use crate::utils::{struct_to_url, struct_to_url_vlod};
+        use serde::Serialize;
+        #[derive(Debug, Serialize, Default, Clone)]
+        pub struct DataStruct {
+            string: String,
+            object: DataObject,
+            array: Vec<String>,
+        }
+        #[derive(Debug, Serialize, Default, Clone)]
+        pub struct DataObject {
+            s1: String,
+            s2: String,
+        }
+
+        let url = "example.com";
+        let data = DataStruct {
+            string: String::from("haiii"),
+            array: vec!["item".to_string(), "in".to_string(), "vec".to_string()],
+            ..Default::default()
+        };
+        // testing different implementations for url encoding
+        println!("ORIGINAL: {url}, {:?}", data);
+        println!("TOAST ENCODED: {url}{}", struct_to_url(&data, false));
+        println!("TOAST ENCODED ENABLED: {url}{}", struct_to_url(&data, true));
+        println!("VLOD ENCODED: {url}{}", struct_to_url_vlod(&data));
     }
 }
