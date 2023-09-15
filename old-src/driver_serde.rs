@@ -16,7 +16,7 @@ impl Delta {
             self.common(&format!("{}{}", self.url, route), method.into(), data)
                 .await,
         )
-        .await
+            .await
     }
 
     pub async fn result<T: serde::de::DeserializeOwned>(

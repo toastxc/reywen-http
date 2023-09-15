@@ -29,10 +29,24 @@ impl Delta2 {
     }
 }
 
+impl Delta2 {
+    #[cfg(feature = "serde")]
+    pub async fn request<T: serde::de::DeserializeOwned>(
+        &self,
+        method: Method,
+        route: &str,
+        data: impl Into<Vec<u8>>,
+    ) -> Result<T, DeltaError> {
+        // Delta::result(
+        //     self.common(&format!("{}{}", self.url, route), method.into(), Some(data))
+        //         .await,
+        // )
+        // .await
+        todo!()
+    }
+}
 
-pub type Response = Result<hyper::Response<hyper::Body>, DeltaError>;
-
-
+type Response = Result<hyper::Response<hyper::Body>, DeltaError>;
 
 impl Delta2 {
     pub async fn common(

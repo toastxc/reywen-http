@@ -7,20 +7,17 @@ impl From<InvalidHeaderValue> for DeltaError {
         DeltaError::Header(HeaderError::Value(value))
     }
 }
+
+
 impl From<hyper::http::Error> for  DeltaError {
     fn from(value: Error) -> Self {
         DeltaError::HyperHTTP(value)
     }
 }
+
+
 impl From<hyper::Error> for DeltaError {
     fn from(value: hyper::Error) -> Self {
         Self::Hyper(value)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl From<serde_json::Error> for DeltaError {
-    fn from(value: serde_json::Error) -> Self {
-        Self::Serde(value)
     }
 }
