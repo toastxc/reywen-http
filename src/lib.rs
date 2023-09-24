@@ -12,7 +12,6 @@ pub mod results;
 pub mod utils;
 
 use crate::results::DeltaError;
-use hyper::header;
 
 pub type DeltaResponse<HttpE, HN, HV> = Result<DeltaBody, DeltaError<HttpE, HN, HV>>;
 
@@ -20,7 +19,6 @@ pub type DeltaResponse<HttpE, HN, HV> = Result<DeltaBody, DeltaError<HttpE, HN, 
 pub struct Delta {
     pub url: String,
     pub timeout: std::time::Duration,
-    pub headers: header::HeaderMap,
     pub user_agent: Option<String>,
     pub content_type: Option<String>,
 }

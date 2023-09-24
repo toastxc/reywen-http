@@ -21,7 +21,10 @@ use crate::results::DeltaError;
 pub type Response<HttpE, HN, HV> = Result<hyper::Response<hyper::Body>, DeltaError<HttpE, HN, HV>>;
 
 #[derive(Debug, Clone, Default)]
-pub struct Hyper(Delta);
+pub struct Hyper {
+    delta: Delta,
+    headers: hyper::HeaderMap,
+}
 
 impl Hyper {
     #[must_use]
@@ -51,7 +54,7 @@ impl From<hyper::StatusCode> for StatusCode {
     fn from(value: hyper::StatusCode) -> Self {
         // `new_unchecked` is used because `hyper::StatusCode::as_u16` is guaranteed
         // to return a non-zero unsigned 16-bit value.
-        Self(unsafe { NonZeroU16::new_unchecked(value.as_u16())})
+        Self(unsafe { NonZeroU16::new_unchecked(value.as_u16()) })
     }
 }
 
@@ -68,11 +71,11 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
         let client = hyper::Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
 
         // headers
-        let mut headers = self.0.clone().headers;
+        let mut headers = self.headers.clone();
         headers.insert(
             USER_AGENT,
             HeaderValue::from_str(
-                self.0
+                self.delta
                     .user_agent
                     .as_deref()
                     .unwrap_or("Reywen-HTTP/10.0 (async-tokio-runtime)"),
@@ -80,7 +83,7 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
             .map_err(|error| DeltaError::Header(HeaderError::Value(error)))?,
         );
 
-        if let Some(content_type) = self.0.content_type.as_deref() {
+        if let Some(content_type) = self.delta.content_type.as_deref() {
             headers.insert(
                 CONTENT_TYPE,
                 HeaderValue::from_str(content_type)
@@ -130,7 +133,7 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
     ) -> DeltaResponse<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> {
         self.common(
             method.into(),
-            format!("{}{}", self.0.url, path.into()),
+            format!("{}{}", self.delta.url, path.into()),
             data.into(),
         )
         .await
