@@ -79,16 +79,11 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
                     .user_agent
                     .as_deref()
                     .unwrap_or("Reywen-HTTP/10.0 (async-tokio-runtime)"),
-            )
-            .map_err(|error| DeltaError::Header(HeaderError::Value(error)))?,
+            )?,
         );
 
         if let Some(content_type) = self.delta.content_type.as_deref() {
-            headers.insert(
-                CONTENT_TYPE,
-                HeaderValue::from_str(content_type)
-                    .map_err(|error| DeltaError::Header(HeaderError::Value(error)))?,
-            );
+            headers.insert(CONTENT_TYPE, HeaderValue::from_str(content_type)?);
         };
 
         match request.headers_mut() {
@@ -140,15 +135,15 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[tokio::test]
-    async fn hyper_engine() {
-        assert!(Hyper::new()
-            .request_raw(Method::GET, "https://api.revolt.chat", None)
-            .await
-            .is_ok());
+impl<HttpE, HN> From<InvalidHeaderValue> for DeltaError<HttpE, HN, InvalidHeaderValue> {
+    fn from(value: InvalidHeaderValue) -> Self {
+        Self::Header(HeaderError::Value(value))
+    }
+}
+
+impl<HttpE, HV> From<InvalidHeaderName> for DeltaError<HttpE, InvalidHeaderName, HV> {
+    fn from(value: InvalidHeaderName) -> Self {
+        Self::Header(HeaderError::Name(value))
     }
 }
 
@@ -161,5 +156,17 @@ impl<HN, HV> From<hyper::http::Error> for DeltaError<hyper::http::Error, HN, HV>
 impl<HttpE, HN, HV> From<hyper::Error> for DeltaError<HttpE, HN, HV> {
     fn from(value: hyper::Error) -> Self {
         Self::Engine(Engine::Hyper(value))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[tokio::test]
+    async fn hyper_engine() {
+        assert!(Hyper::new()
+            .request_raw(Method::GET, "https://api.revolt.chat", None)
+            .await
+            .is_ok());
     }
 }

@@ -1,6 +1,10 @@
 #[cfg(feature = "serde")]
 use crate::results::DeltaError;
-use crate::{DeltaBody, DeltaResponse};
+
+#[cfg(feature = "serde")]
+use crate::DeltaBody;
+
+use crate::DeltaResponse;
 use async_trait::async_trait;
 #[cfg(feature = "serde")]
 use serde::de::DeserializeOwned;
