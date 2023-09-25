@@ -60,6 +60,12 @@ pub trait DeltaRequest<HttpE, HN, HV> {
 
 #[cfg(feature = "serde")]
 impl DeltaBody {
+    /// Generates the JSON payload of the body deserialized using `serde`.
+    /// 
+    /// # Errors
+    /// 
+    /// This function will return an error if the
+    /// body is not valid JSON or the status code is not 200 or 204.
     pub fn serde_switcher<T: DeserializeOwned, HttpE, HN, HV>(
         self,
     ) -> Result<T, DeltaError<HttpE, HN, HV>> {
