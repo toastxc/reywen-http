@@ -1,55 +1,33 @@
-use crate::hyper_driver;
-use crate::hyper_driver::StatusCode;
-use hyper::header::{InvalidHeaderName, InvalidHeaderValue};
-use std::num::NonZeroU16;
 use std::string::FromUtf8Error;
 
+use crate::StatusCode;
+
 #[derive(Debug)]
-pub enum DeltaError {
+pub enum DeltaError<HttpE, HN, HV> {
     StatusCode(StatusCode),
-    HTTP(hyper::http::Error),
+    HTTP(HttpE),
     #[cfg(feature = "serde")]
     Serde(serde_json::Error),
     Byte(FromUtf8Error),
-    Header(HeaderError),
+    Header(HeaderError<HN, HV>),
     Engine(Engine),
 }
 
 #[derive(Debug)]
 pub enum Engine {
+    #[cfg(feature = "hyper_engine")]
     Hyper(hyper::Error),
 }
 
 #[derive(Debug)]
-pub enum HeaderError {
-    Name(InvalidHeaderName),
-    Value(InvalidHeaderValue),
+pub enum HeaderError<N, V> {
+    Name(N),
+    Value(V),
 }
 
-impl From<InvalidHeaderValue> for DeltaError {
-    fn from(value: InvalidHeaderValue) -> Self {
-        DeltaError::Header(HeaderError::Value(value))
-    }
-}
 #[cfg(feature = "serde")]
-impl From<serde_json::Error> for DeltaError {
+impl<HttpE, HN, HV> From<serde_json::Error> for DeltaError<HttpE, HN, HV> {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)
-    }
-}
-impl From<hyper::http::Error> for DeltaError {
-    fn from(value: hyper::http::Error) -> Self {
-        DeltaError::HTTP(value)
-    }
-}
-impl From<hyper::Error> for DeltaError {
-    fn from(value: hyper::Error) -> Self {
-        Self::Engine(Engine::Hyper(value))
-    }
-}
-
-impl From<hyper::StatusCode> for hyper_driver::StatusCode {
-    fn from(value: hyper::StatusCode) -> Self {
-        StatusCode(NonZeroU16::new(value.as_u16()).unwrap())
     }
 }

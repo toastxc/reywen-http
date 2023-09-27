@@ -1,5 +1,4 @@
 {
-    "rust-analyzer.cargo.features": [
-        "serde"
-    ]
+  "rust-analyzer.cargo.features": "all",
+  "nixEnvSelector.nixFile": "${workspaceRoot}/shell.nix"
 }
