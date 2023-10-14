@@ -52,11 +52,6 @@ pub fn struct_to_url<T: Serialize>(query: T, #[cfg(feature = "encoding")] encode
     .replace('"', "")
 }
 
-#[must_use]
-pub fn if_false(t: &bool) -> bool {
-    !t
-}
-
 #[cfg(feature = "serde")]
 #[cfg(feature = "encoding")]
 #[must_use]

@@ -1,29 +1,45 @@
-use std::num::NonZeroU16;
-
-use super::Method;
-use crate::results::{Engine, HeaderError};
-use crate::{engines::DeltaRequest, Delta};
-use crate::{traits, DeltaBody, DeltaResponse, StatusCode};
-
-use async_trait::async_trait;
-use hyper::header::{InvalidHeaderName, InvalidHeaderValue};
 use hyper::{
     body::HttpBody,
-    header::{CONTENT_TYPE, USER_AGENT},
+    header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE, USER_AGENT},
     http::HeaderValue,
-    Body, Request,
+    Body, Method, Request, StatusCode,
 };
 use hyper_tls::HttpsConnector;
 
-#[cfg(feature = "serde")]
-use crate::results::DeltaError;
+pub struct HyperBody {
+    pub body: Option<Vec<u8>>,
+    pub status: StatusCode,
+}
 
-pub type Response<HttpE, HN, HV> = Result<hyper::Response<hyper::Body>, DeltaError<HttpE, HN, HV>>;
+pub enum Error {
+    Engine(hyper::Error),
+    Http(hyper::http::Error),
+    #[cfg(feature = "serde")]
+    Serde(serde_json::Error),
+    StatusCode(StatusCode),
+    HeaderName(InvalidHeaderName),
+    HeaderValue(InvalidHeaderValue),
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone, Default)]
 pub struct Hyper {
-    delta: Delta,
-    headers: hyper::HeaderMap,
+    pub url: String,
+    pub user_agent: Option<String>,
+    pub content_type: Option<String>,
+    pub headers: hyper::HeaderMap,
+}
+
+impl HyperBody {
+    #[cfg(feature = "serde")]
+    pub fn serde_switch<T: serde::de::DeserializeOwned>(self) -> Result<T> {
+        match (self.body, self.status.as_u16()) {
+            (Some(data), 200) => Ok(serde_json::from_slice(&data)?),
+            (None, 200) | (_, 204) => Ok(serde_json::from_value(serde_json::Value::Null)?),
+            _ => Err(Error::StatusCode(self.status)),
+        }
+    }
 }
 
 impl Hyper {
@@ -31,41 +47,13 @@ impl Hyper {
     pub fn new() -> Self {
         Self::default()
     }
-}
 
-impl From<Method> for hyper::Method {
-    fn from(method: Method) -> Self {
-        match method {
-            Method::POST => Self::POST,
-            Method::PUT => Self::PUT,
-            Method::PATCH => Self::PATCH,
-            Method::GET => Self::GET,
-            Method::DELETE => Self::DELETE,
-            Method::HEAD => Self::HEAD,
-            Method::OPTIONS => Self::OPTIONS,
-            Method::CONNECT => Self::CONNECT,
-            Method::TRACE => Self::TRACE,
-        }
-    }
-}
-
-#[allow(clippy::fallible_impl_from)]
-impl From<hyper::StatusCode> for StatusCode {
-    fn from(value: hyper::StatusCode) -> Self {
-        // `new_unchecked` is used because `hyper::StatusCode::as_u16` is guaranteed
-        // to return a non-zero unsigned 16-bit value.
-        Self(unsafe { NonZeroU16::new_unchecked(value.as_u16()) })
-    }
-}
-
-#[async_trait]
-impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for Hyper {
-    async fn common(
+    pub async fn common(
         &self,
         method: Method,
         url: String,
         data: Option<Vec<u8>>,
-    ) -> DeltaResponse<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> {
+    ) -> Result<HyperBody> {
         // http request
         let mut request = Request::builder().method(method).uri(url);
         let client = hyper::Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
@@ -74,15 +62,10 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
         let mut headers = self.headers.clone();
         headers.insert(
             USER_AGENT,
-            HeaderValue::from_str(
-                self.delta
-                    .user_agent
-                    .as_deref()
-                    .unwrap_or("Reywen-HTTP/10.0 (async-tokio-runtime)"),
-            )?,
+            HeaderValue::from_str(self.user_agent.as_deref().unwrap_or(crate::USER_AGENT))?,
         );
 
-        if let Some(content_type) = self.delta.content_type.as_deref() {
+        if let Some(content_type) = self.content_type.as_deref() {
             headers.insert(CONTENT_TYPE, HeaderValue::from_str(content_type)?);
         };
 
@@ -99,12 +82,7 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
 
         // request
         let response = client
-            .request(
-                match request.body(data.map_or_else(Body::empty, Body::from)) {
-                    Ok(request) => request,
-                    Err(error) => return Err(DeltaError::HTTP(error)),
-                },
-            )
+            .request(request.body(data.map_or_else(Body::empty, Body::from))?)
             .await?;
 
         let status = response.status();
@@ -114,48 +92,62 @@ impl DeltaRequest<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> for
             Some(data) => Some(data?.to_vec()),
         };
 
-        Ok(DeltaBody {
-            status: status.into(),
-            body,
-        })
+        Ok(HyperBody { status, body })
     }
 
-    async fn request_raw<'a>(
+    pub async fn request_raw(
         &self,
-        method: traits!(Method),
-        path: traits!(String),
-        data: traits!(Option<Vec<u8>>),
-    ) -> DeltaResponse<hyper::http::Error, InvalidHeaderName, InvalidHeaderValue> {
+        method: impl Into<Method>,
+        path: impl Into<String>,
+        data: impl Into<Option<Vec<u8>>>,
+    ) -> Result<HyperBody> {
         self.common(
             method.into(),
-            format!("{}{}", self.delta.url, path.into()),
+            format!("{}{}", self.url, path.into()),
             data.into(),
         )
         .await
     }
-}
 
-impl<HttpE, HN> From<InvalidHeaderValue> for DeltaError<HttpE, HN, InvalidHeaderValue> {
-    fn from(value: InvalidHeaderValue) -> Self {
-        Self::Header(HeaderError::Value(value))
+    #[cfg(feature = "serde")]
+    pub async fn request<T: serde::de::DeserializeOwned>(
+        &self,
+        method: impl Into<Method>,
+        path: impl Into<String>,
+        data: impl Into<Option<Vec<u8>>>,
+    ) -> Result<T> {
+        self.request_raw(method, path, data).await?.serde_switch()
     }
 }
 
-impl<HttpE, HV> From<InvalidHeaderName> for DeltaError<HttpE, InvalidHeaderName, HV> {
-    fn from(value: InvalidHeaderName) -> Self {
-        Self::Header(HeaderError::Name(value))
-    }
-}
-
-impl<HN, HV> From<hyper::http::Error> for DeltaError<hyper::http::Error, HN, HV> {
-    fn from(value: hyper::http::Error) -> Self {
-        Self::HTTP(value)
-    }
-}
-
-impl<HttpE, HN, HV> From<hyper::Error> for DeltaError<HttpE, HN, HV> {
+impl From<hyper::Error> for Error {
     fn from(value: hyper::Error) -> Self {
-        Self::Engine(Engine::Hyper(value))
+        Self::Engine(value)
+    }
+}
+
+impl From<hyper::http::Error> for Error {
+    fn from(value: hyper::http::Error) -> Self {
+        Self::Http(value)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serde(value)
+    }
+}
+
+impl From<InvalidHeaderName> for Error {
+    fn from(value: InvalidHeaderName) -> Self {
+        Self::HeaderName(value)
+    }
+}
+
+impl From<InvalidHeaderValue> for Error {
+    fn from(value: InvalidHeaderValue) -> Self {
+        Self::HeaderValue(value)
     }
 }
 
