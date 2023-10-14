@@ -5,52 +5,90 @@ edition = "2021"
 license = "GPL-3.0-only"
 description = "A simple and easy to use HTTPv2 library for Rust (based on tokio/reqwest)"
 
-[dependencies]
-
 # hyper
-hyper = { version = "0.14.27", optional = true }
-hyper-rustls = { version = "0.24.0", optional = true }
-hyper-tls = { version = "0.5.0", optional = true }
+[dependencies.hyper]
+version = "0.14.27"
+optional = true
 
-# reqwasm
-reqwasm = { version = "0.5.0", optional = true }
+[dependencies.hyper-rustls]
+version = "0.24.0"
+optional = true
 
-# async
-tokio = { version = "1.32.0", features = ["macros", "rt"] }
-async-trait = { version = "0.1.73", optional = true }
+[dependencies.hyper-tls]
+version = "0.5.0"
+optional = true
 
-# serde
-serde = { default-features = false, optional = true, version = "1.0.188" }
-serde_json = { default-features = false, optional = true, version = "1.0.107", features = [
-    "std",
-] }
+# reqwest
+[dependencies.reqwest]
+version = "0.11.22"
+optional = true
 
-# encoding
-urlencoding = { default-features = false, optional = true, version = "2.1.3" }
+[dependencies.url]
+version = "2.4.1"
+optional = true
 
 # wasm
-wasm-bindgen = { version = "0.2.87", optional = true }
-web-sys = { version = "0.3.64", optional = true, features = [
-    "ReadableStreamDefaultReader",
-] }
-wasm-bindgen-futures = { version = "0.4.37", optional = true }
-js-sys = { version = "0.3.64", optional = true }
+[dependencies.wasm-bindgen]
+version = "0.2.87"
+optional = true
 
-[dev-dependencies]
-wasm-bindgen-test = "0.3.0"
+[dependencies.web-sys]
+version = "0.3.64"
+optional = true
+features = ["ReadableStreamDefaultReader"]
+
+[dependencies.wasm-bindgen-futures]
+version = "0.4.37"
+optional = true
+
+[dependencies.js-sys]
+version = "0.3.64"
+optional = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies.wasm-bindgen-test]
+version = "0.3.0"
+
+[dependencies.reqwasm]
+version = "0.5.0"
+optional = true
+
+# async
+[target.'cfg(target_arch = "wasm32")'.dependencies.tokio]
+version = "1.32.0"
+features = ["macros", "rt"]
+
+[dependencies.tokio]
+version = "1.32.0"
+features = ["macros"]
+
+[dependencies.serde]
+version = "1.0.188"
+optional = true
+default-features = false
+
+[dependencies.serde_json]
+version = "1.0.107"
+optional = true
+default-features = false
+features = ["std"]
+
+[dependencies.urlencoding]
+version = "2.1.3"
+optional = true
+default-features = false
 
 [features]
 serde = ["dep:serde", "dep:serde_json"]
 encoding = ["dep:urlencoding"]
-hyper_engine = ["dep:hyper", "dep:hyper-rustls", "dep:hyper-tls", "async"]
-reqwasm_engine = ["wasm", "dep:reqwasm"]
-wasm = [
+hyper_engine = ["dep:hyper", "dep:hyper-rustls", "dep:hyper-tls"]
+reqwest_engine = ["dep:reqwest", "dep:url"]
+reqwasm_engine = [
     "dep:wasm-bindgen",
     "dep:wasm-bindgen-futures",
     "dep:web-sys",
     "dep:js-sys",
+    "dep:reqwasm",
 ]
-async = ["dep:async-trait"]
 
 [lib]
 crate-type = ["cdylib"]

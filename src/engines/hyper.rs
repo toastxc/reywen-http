@@ -5,15 +5,14 @@ use hyper::{
     Body, Method, Request, StatusCode,
 };
 use hyper_tls::HttpsConnector;
-use serde::de::DeserializeOwned;
 
 pub struct HyperBody {
-    body: Option<Vec<u8>>,
-    status: StatusCode,
+    pub body: Option<Vec<u8>>,
+    pub status: StatusCode,
 }
 
 pub enum Error {
-    Hyper(hyper::Error),
+    Engine(hyper::Error),
     Http(hyper::http::Error),
     #[cfg(feature = "serde")]
     Serde(serde_json::Error),
@@ -48,9 +47,7 @@ impl Hyper {
     pub fn new() -> Self {
         Self::default()
     }
-}
 
-impl Hyper {
     pub async fn common(
         &self,
         method: Method,
@@ -112,7 +109,8 @@ impl Hyper {
         .await
     }
 
-    pub async fn request<T: DeserializeOwned>(
+    #[cfg(feature = "serde")]
+    pub async fn request<T: serde::de::DeserializeOwned>(
         &self,
         method: impl Into<Method>,
         path: impl Into<String>,
@@ -124,7 +122,7 @@ impl Hyper {
 
 impl From<hyper::Error> for Error {
     fn from(value: hyper::Error) -> Self {
-        Self::Hyper(value)
+        Self::Engine(value)
     }
 }
 
@@ -134,6 +132,7 @@ impl From<hyper::http::Error> for Error {
     }
 }
 
+#[cfg(feature = "serde")]
 impl From<serde_json::Error> for Error {
     fn from(value: serde_json::Error) -> Self {
         Self::Serde(value)

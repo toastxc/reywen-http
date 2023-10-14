@@ -6,16 +6,17 @@ use web_sys::ReadableStreamDefaultReader;
 
 #[derive(Debug, Clone)]
 pub struct ReqwasmBody {
-    body: Option<Vec<u8>>,
-    status: std::num::NonZeroU16,
+    pub body: Option<Vec<u8>>,
+    pub status: std::num::NonZeroU16,
 }
 
+#[cfg(feature = "serde")]
 impl ReqwasmBody {
-    #[cfg(feature = "serde")]
     pub fn serde_switch<T: serde::de::DeserializeOwned>(self) -> Result<T> {
         match (self.body, self.status.get()) {
             (Some(data), 200) => Ok(serde_json::from_slice(&data)?),
-            _ => Ok(serde_json::from_value(serde_json::Value::Null)?),
+            (None, 200) | (_, 204) => Ok(serde_json::from_value(serde_json::Value::Null)?),
+            _ => Err(Error::StatusCode(self.status)),
         }
     }
 }
@@ -29,7 +30,45 @@ impl Default for ReqwasmBody {
     }
 }
 
-pub type Result<T> = std::result::Result<T, reqwasm::Error>;
+pub enum Error {
+    Engine(reqwasm::Error),
+    Js(wasm_bindgen::JsError),
+
+    /// Conversion of a JS value when processing the request.
+    /// Likely a bug in the library.
+    JsConversion(wasm_bindgen::JsValue),
+
+    #[cfg(feature = "serde")]
+    Serde(serde_json::Error),
+    StatusCode(std::num::NonZeroU16),
+}
+
+impl From<reqwasm::Error> for Error {
+    fn from(value: reqwasm::Error) -> Self {
+        Self::Engine(value)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<serde_json::Error> for Error {
+    fn from(value: serde_json::Error) -> Self {
+        Self::Serde(value)
+    }
+}
+
+impl From<wasm_bindgen::JsError> for Error {
+    fn from(value: wasm_bindgen::JsError) -> Self {
+        Self::Js(value)
+    }
+}
+
+impl From<wasm_bindgen::JsValue> for Error {
+    fn from(value: wasm_bindgen::JsValue) -> Self {
+        Self::JsConversion(value)
+    }
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Default)]
 pub struct Reqwasm {
@@ -99,18 +138,12 @@ impl Reqwasm {
                 let reader: ReadableStreamDefaultReader = body
                     .get_reader()
                     .dyn_into()
-                    .expect("Got invalid type from `Response.body`");
+                    .map_err(|err| JsValue::from(err))?;
 
-                let result: Object = JsFuture::from(reader.read())
-                    .await
-                    .expect("`ReadableStreamDefaultReader.read` did not return a future")
-                    .dyn_into()
-                    .expect("Could not convert result to object");
+                let result: Object = JsFuture::from(reader.read()).await?.dyn_into()?;
 
-                let result: Uint8Array = Reflect::get(&result, &JsValue::from_str("value"))
-                    .expect("Could not find object key `value`")
-                    .dyn_into()
-                    .expect("Could not convert `value` to `Uint8Array`");
+                let result: Uint8Array =
+                    Reflect::get(&result, &JsValue::from_str("value"))?.dyn_into()?;
 
                 Some(result.to_vec())
             }
