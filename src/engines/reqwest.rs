@@ -2,6 +2,7 @@
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
 
+use crate::engines::Setter;
 use reqwest::{
     header::{HeaderValue, InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE, USER_AGENT},
     Body, Client, Method, Request, StatusCode, Url,
@@ -112,8 +113,7 @@ impl Reqwest {
         if let Some(content_type) = self.content_type.as_deref() {
             headers.insert(CONTENT_TYPE, HeaderValue::from_str(content_type)?);
         }
-
-        *request.body_mut() = data.map(|data| Body::from(data));
+        *request.body_mut() = data.map(Body::from);
 
         let response = client.execute(request).await?;
         let status = response.status();
@@ -121,7 +121,7 @@ impl Reqwest {
         let body = response.bytes().await?.to_vec();
         let body = if body.is_empty() { None } else { Some(body) };
 
-        Ok(ReqwestBody { status, body })
+        Ok(ReqwestBody { body, status })
     }
 
     pub async fn request_raw(
@@ -139,6 +139,20 @@ impl Reqwest {
     }
 }
 
+impl Setter for Reqwest {
+    fn set_url(&mut self, url: impl Into<String>) -> Self {
+        self.url = url.into();
+        self.clone()
+    }
+    fn set_user_agent(&mut self, user_agent: impl Into<String>) -> Self {
+        self.user_agent = Some(user_agent.into());
+        self.clone()
+    }
+    fn set_content_type(&mut self, content_type: impl Into<String>) -> Self {
+        self.content_type = Some(content_type.into());
+        self.clone()
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::Reqwest;

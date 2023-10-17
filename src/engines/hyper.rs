@@ -1,12 +1,13 @@
+use crate::engines::Setter;
 use hyper::{
     body::HttpBody,
     header::{InvalidHeaderName, InvalidHeaderValue, CONTENT_TYPE, USER_AGENT},
     http::HeaderValue,
-    Body, Method, Request, StatusCode,
+    Method, Request, StatusCode,
 };
 use hyper_tls::HttpsConnector;
 
-pub struct HyperBody {
+pub struct Body {
     pub body: Option<Vec<u8>>,
     pub status: StatusCode,
 }
@@ -31,7 +32,7 @@ pub struct Hyper {
     pub headers: hyper::HeaderMap,
 }
 
-impl HyperBody {
+impl Body {
     #[cfg(feature = "serde")]
     pub fn serde_switch<T: serde::de::DeserializeOwned>(self) -> Result<T> {
         match (self.body, self.status.as_u16()) {
@@ -47,13 +48,7 @@ impl Hyper {
     pub fn new() -> Self {
         Self::default()
     }
-
-    pub async fn common(
-        &self,
-        method: Method,
-        url: String,
-        data: Option<Vec<u8>>,
-    ) -> Result<HyperBody> {
+    pub async fn common(&self, method: Method, url: String, data: Option<Vec<u8>>) -> Result<Body> {
         // http request
         let mut request = Request::builder().method(method).uri(url);
         let client = hyper::Client::builder().build::<_, hyper::Body>(HttpsConnector::new());
@@ -82,7 +77,7 @@ impl Hyper {
 
         // request
         let response = client
-            .request(request.body(data.map_or_else(Body::empty, Body::from))?)
+            .request(request.body(data.map_or_else(hyper::Body::empty, hyper::Body::from))?)
             .await?;
 
         let status = response.status();
@@ -92,7 +87,7 @@ impl Hyper {
             Some(data) => Some(data?.to_vec()),
         };
 
-        Ok(HyperBody { status, body })
+        Ok(Body { body, status })
     }
 
     pub async fn request_raw(
@@ -100,7 +95,7 @@ impl Hyper {
         method: impl Into<Method>,
         path: impl Into<String>,
         data: impl Into<Option<Vec<u8>>>,
-    ) -> Result<HyperBody> {
+    ) -> Result<Body> {
         self.common(
             method.into(),
             format!("{}{}", self.url, path.into()),
@@ -120,6 +115,20 @@ impl Hyper {
     }
 }
 
+impl Setter for Hyper {
+    fn set_url(&mut self, url: impl Into<String>) -> Self {
+        self.url = url.into();
+        self.clone()
+    }
+    fn set_user_agent(&mut self, user_agent: impl Into<String>) -> Self {
+        self.user_agent = Some(user_agent.into());
+        self.clone()
+    }
+    fn set_content_type(&mut self, content_type: impl Into<String>) -> Self {
+        self.content_type = Some(content_type.into());
+        self.clone()
+    }
+}
 impl From<hyper::Error> for Error {
     fn from(value: hyper::Error) -> Self {
         Self::Engine(value)

@@ -116,7 +116,7 @@ impl Reqwasm {
         url: String,
         data: Option<wasm_bindgen::JsValue>,
     ) -> Result<ReqwasmBody> {
-        let mut request = Request::new(&url).body(data).method(method.into()).header(
+        let mut request = Request::new(&url).body(data).method(method).header(
             "User-agent",
             self.user_agent.as_deref().unwrap_or(crate::USER_AGENT),
         );
@@ -135,10 +135,8 @@ impl Reqwasm {
 
         let body = match response.body() {
             Some(body) => {
-                let reader: ReadableStreamDefaultReader = body
-                    .get_reader()
-                    .dyn_into()
-                    .map_err(|err| JsValue::from(err))?;
+                let reader: ReadableStreamDefaultReader =
+                    body.get_reader().dyn_into().map_err(JsValue::from)?;
 
                 let result: Object = JsFuture::from(reader.read()).await?.dyn_into()?;
 
