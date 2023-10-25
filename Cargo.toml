@@ -3,25 +3,92 @@ name = "reywen_http"
 version = "0.1.16"
 edition = "2021"
 license = "GPL-3.0-only"
-description = "A simple and easy to use HTTPv2 library for Rust (based on tokio/reqwest) "
+description = "A simple and easy to use HTTPv2 library for Rust (based on tokio/reqwest)"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# hyper
+[dependencies.hyper]
+version = "0.14.27"
+optional = true
 
-[dependencies]
+[dependencies.hyper-rustls]
+version = "0.24.0"
+optional = true
 
-# http
-hyper = "0.14.27"
-hyper-rustls = "0.24.0"
-hyper-timeout = "0.4.1"
-hyper-tls = "0.5.0"
-tokio = { version = "1.29.1", features = ["macros"] }
-urlencoding = "2.1.2"
+[dependencies.hyper-tls]
+version = "0.5.0"
+optional = true
 
-# feature - serde
-serde = { version = "1.0.162", optional = true, features = ["derive"] }
-serde_json = {version = "1.0.96", optional = true}
+# reqwest
+[dependencies.reqwest]
+version = "0.11.22"
+optional = true
 
+[dependencies.url]
+version = "2.4.1"
+optional = true
 
+# wasm
+[dependencies.wasm-bindgen]
+version = "0.2.87"
+optional = true
+
+[dependencies.web-sys]
+version = "0.3.64"
+optional = true
+features = ["ReadableStreamDefaultReader"]
+
+[dependencies.wasm-bindgen-futures]
+version = "0.4.37"
+optional = true
+
+[dependencies.js-sys]
+version = "0.3.64"
+optional = true
+
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies.wasm-bindgen-test]
+version = "0.3.0"
+
+[dependencies.reqwasm]
+version = "0.5.0"
+optional = true
+
+# async
+[target.'cfg(target_arch = "wasm32")'.dependencies.tokio]
+version = "1.32.0"
+features = ["macros", "rt"]
+
+[dependencies.tokio]
+version = "1.32.0"
+features = ["macros"]
+
+[dependencies.serde]
+version = "1.0.188"
+optional = true
+default-features = false
+
+[dependencies.serde_json]
+version = "1.0.107"
+optional = true
+default-features = false
+features = ["std"]
+
+[dependencies.urlencoding]
+version = "2.1.3"
+optional = true
+default-features = false
 
 [features]
 serde = ["dep:serde", "dep:serde_json"]
+encoding = ["dep:urlencoding"]
+hyper_engine = ["dep:hyper", "dep:hyper-rustls", "dep:hyper-tls"]
+reqwest_engine = ["dep:reqwest", "dep:url"]
+reqwasm_engine = [
+    "dep:wasm-bindgen",
+    "dep:wasm-bindgen-futures",
+    "dep:web-sys",
+    "dep:js-sys",
+    "dep:reqwasm",
+]
+
+[lib]
+crate-type = ["cdylib"]

@@ -1,62 +1,60 @@
-# reywen-http
+# Reywen-HTTP
 
 
 ### Why another HTTP lib?
 Originally I maintained my own HTTP library within a project for Revolt.chat, but it became too large and is now in it's own repository. That said the library can be easily used by anyone for any API!
 
+### Features
+- built-in serde support
+- can use a variety of HTTP engines
+- WASM support
+- Tokio async
 
-### Example Using HighPixel API
+### Example Using Hypixel API
+As shown below the library can be used without much prior setup or configuration, and runs asynchronously.
 
-#### GET Request
-As shown below the library can be used without much prior setup or configuration, and runs asyncronously.
+This example uses Hyper as its backend, however there are many different HTTP engines available for use. All of them implement the same Request/ReqRaw syntax
 ```rust
-// Imprting needed libraries
-use reywen_http::{driver::Delta, results::DeltaError};
-// Generic JSON system
+use crate::engines::hyper::{Error, Hyper};
+use hyper::Method;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[tokio::main]
-async fn main() {
+#[derive(Serialize, Debug, Deserialize, Default)]
+pub struct ExampleData {
+    field1: String,
+}
 
-    // Defining HTTP Client, all setters start with 'set'
-    let http = Delta::new()
-        .set_url("https://api.hypixel.net")
-        .set_timeout(10);
-
-    // reqwesting data from bazaar, the serilization target for this API is that of the specified type as shown below
-    let highpickle: Result<Value, DeltaError> =
-        Delta::result(http.get("/skyblock/bazaar").await).await;
-
-    match highpickle {
-        Ok(data) => {
-            println!("{:#?}\nSuccess! Latest bazaar data :3", data)
-        }
-        Err(er) => {
-            println!("{:#?}", er)
-        }
+impl From<ExampleData> for Option<Vec<u8>> {
+    fn from(value: ExampleData) -> Self {
+        todo!()
     }
 }
-```
+pub async fn hypixel_example() -> Result<(), Error> {
+    // define client, fields within the client declaration are global and will apply to all requests
+    // unless overwritten
+    let client = Hyper::new().set_url("https://api.hypixel.net");
 
-#### More complex request
-For use in large projects ideally methods are seperated into their own functions (or files) and are connected in a large `impl`
-Here an example for using reywen-http for revolt.chat, for methods that can accept a data body (non GET) the data is represented by an Option as shown below
-```rust
-use reywen_http::{driver::Delta, results::DeltaError};
-use serde::{Deserialize, Serialize};
+    // request requires serde and will deserialize data based on the T input type
+    println!(
+        "{}",
+        client
+            .request::<Value>(Method::GET, "/skyblock/bazaar", None)
+            .await?
+    );
 
-pub async fn channel_edit(
-    http: &Delta,
-    channel: &str,
-    edit_data: &DataEditChannel,
-) -> Result<Channel, DeltaError> {
-    let data = serde_json::to_string(edit_data).unwrap();
-    Delta::result(
-        http.patch(&format!("/channels/{channel}"), Some(&data))
-            .await,
-    )
-    .await
+    // request raw will return a byte array for as the response
+    client
+        .request_raw(Method::GET, "/skyblock/bazaar", None)
+        .await?;
+
+    // data sent over request or request_raw must be of type Vec<u8>, String or any type that can be
+    // converted to those types
+    client
+        .clone()
+        .set_url("example.com")
+        .request_raw(Method::POST, "", ExampleData::default())
+        .await?;
+    Ok(())
 }
-
-
 ```

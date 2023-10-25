@@ -1,21 +1,13 @@
-pub mod driver;
-#[cfg(feature = "serde")]
-pub mod driver_serde;
-pub mod results;
-pub mod traits;
+#![warn(
+    clippy::all,
+    clippy::pedantic,
+    clippy::style,
+    clippy::nursery,
+    clippy::unwrap_used,
+    clippy::expect_used
+)]
+
+pub mod engines;
 pub mod utils;
 
-#[derive(Debug, Clone, Default)]
-pub struct Delta {
-    pub url: String,
-    pub timeout: std::time::Duration,
-    pub headers: hyper::header::HeaderMap,
-    pub user_agent: Option<String>,
-    pub content_type: Option<String>,
-}
-
-impl Delta {
-    pub fn new() -> Self {
-        Default::default()
-    }
-}
+pub const USER_AGENT: &str = "Reywen-HTTP/10.0 (async-tokio-runtime)";
