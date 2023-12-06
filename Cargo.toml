@@ -5,6 +5,9 @@ edition = "2021"
 license = "GPL-3.0-only"
 description = "A simple and easy to use HTTPv2 library for Rust (based on tokio/reqwest)"
 
+
+
+
 # hyper
 [dependencies.hyper]
 version = "0.14.27"
@@ -89,6 +92,5 @@ reqwasm_engine = [
     "dep:js-sys",
     "dep:reqwasm",
 ]
-
 [lib]
-crate-type = ["cdylib"]
+crate-type = ["rlib"]
