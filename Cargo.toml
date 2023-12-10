@@ -93,4 +93,4 @@ reqwasm_engine = [
     "dep:reqwasm",
 ]
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]

@@ -21,3 +21,9 @@ pub struct Hyper {
     pub content_type: Option<String>,
     pub headers: hyper::HeaderMap,
 }
+
+impl Hyper {
+    pub fn header_delete(&mut self, key: impl Into<String>) {
+        self.headers.remove(key.into());
+    }
+}

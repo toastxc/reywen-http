@@ -132,5 +132,3 @@ impl Hyper {
             .serde_switch()
     }
 }
-
-

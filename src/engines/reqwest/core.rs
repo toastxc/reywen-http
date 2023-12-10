@@ -1,9 +1,9 @@
-use crate::engines::reqwest::results::Error;
-use crate::engines::reqwest::results::Result;
-use crate::engines::reqwest::{Reqwest, ReqwestBody};
-use reqwest::header::{HeaderMap, HeaderName};
+use crate::engines::reqwest::{
+    results::{Error, Result},
+    Reqwest, ReqwestBody,
+};
 use reqwest::{
-    header::{HeaderValue, CONTENT_TYPE, USER_AGENT},
+    header::{HeaderMap, HeaderName, HeaderValue, CONTENT_TYPE, USER_AGENT},
     Body, Client, Method, Request, Url,
 };
 #[cfg(feature = "serde")]
